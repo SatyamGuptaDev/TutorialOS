@@ -1,0 +1,316 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design Tokens — Dark Mode (default) ──────────────────── */
+:root {
+  --color-bg: #0d0f17;
+  --color-surface: #13161f;
+  --color-surface-2: #1a1d2a;
+  --color-surface-3: #21253a;
+  --color-border: #2a2d3e;
+  --color-border-subtle: #1e2133;
+  --color-text: #e8eaf0;
+  --color-text-muted: #6b7280;
+  --color-text-faint: #3d4255;
+  --color-accent: #8b5cf6;
+  --color-accent-hover: #7c3aed;
+  --color-accent-rgb: 139, 92, 246;
+  --color-accent-2: #06b6d4;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 32px;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 320ms;
+
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 56px;
+  --topbar-height: 56px;
+}
+
+/* ─── Accent Color Themes ────────────────────────────────────── */
+:root {
+  --color-accent-text: #ffffff;
+}
+
+[data-accent="violet"] { 
+  --color-accent: #8b5cf6; 
+  --color-accent-hover: #7c3aed;
+  --color-accent-rgb: 139, 92, 246;
+}
+[data-accent="cyan"] { 
+  --color-accent: #06b6d4; 
+  --color-accent-hover: #0891b2;
+  --color-accent-rgb: 6, 182, 212;
+}
+[data-accent="emerald"] { 
+  --color-accent: #10b981; 
+  --color-accent-hover: #059669;
+  --color-accent-rgb: 16, 185, 129;
+}
+[data-accent="rose"] { 
+  --color-accent: #f43f5e; 
+  --color-accent-hover: #e11d48;
+  --color-accent-rgb: 244, 63, 94;
+}
+[data-accent="amber"] { 
+  --color-accent: #f59e0b; 
+  --color-accent-hover: #d97706;
+  --color-accent-rgb: 245, 158, 11;
+}
+
+/* Light mode overrides for better contrast */
+.light[data-accent="violet"] { --color-accent: #7c3aed; }
+.light[data-accent="cyan"] { --color-accent: #0891b2; }
+.light[data-accent="emerald"] { --color-accent: #059669; }
+.light[data-accent="rose"] { --color-accent: #e11d48; }
+.light[data-accent="amber"] { --color-accent: #d97706; }
+
+/* ─── Light Mode ────────────────────────────────────────────── */
+.light {
+  --color-bg: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f1f3f7;
+  --color-surface-3: #e8ebf2;
+  --color-border: #e2e8f0;
+  --color-border-subtle: #edf2f7;
+  --color-text: #1a202c;
+  --color-text-muted: #4a5568;
+  --color-text-faint: #a0aec0;
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+}
+
+/* ─── Base Styles ───────────────────────────────────────────── */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border-color: var(--color-border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── Replace browser focus ring with accent ring ── */
+  *:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Remove default focus on mouse click */
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Typography scale */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-text);
+  }
+
+  a {
+    color: var(--color-accent);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--ease-smooth);
+  }
+
+  a:hover {
+    color: var(--color-accent-hover);
+  }
+
+  code, pre, kbd, samp {
+    font-family: var(--font-mono);
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-surface-3);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border);
+  }
+
+  /* Selection color */
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    color: var(--color-text);
+  }
+}
+
+/* ─── Component Utilities ───────────────────────────────────── */
+@layer components {
+  .glass {
+    background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border);
+  }
+
+  .gradient-text {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-accent {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-2));
+  }
+
+  .surface-hover {
+    transition: background-color var(--duration-fast) var(--ease-smooth);
+  }
+
+  .surface-hover:hover {
+    background-color: var(--color-surface-2);
+  }
+
+  .focus-ring {
+    transition: box-shadow var(--duration-fast) var(--ease-smooth);
+  }
+
+  .focus-ring:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-accent);
+    outline: none;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--color-surface-2) 25%,
+      var(--color-surface-3) 50%,
+      var(--color-surface-2) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s infinite;
+    border-radius: var(--radius-sm);
+  }
+
+  @keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+}
+
+/* ─── Utility Overrides ─────────────────────────────────────── */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+/* ─── Editor & Highlighter Styles ─────────────────────────── */
+.rich-editor-content {
+  @apply outline-none min-h-[500px];
+}
+
+.prose-editor {
+  @apply max-w-none;
+}
+
+/* TipTap Highlighter Extension Styles */
+.rich-editor-content mark {
+  @apply rounded-[2px] px-0.5 py-px bg-transparent transition-colors duration-200;
+  background-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  color: inherit;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.light .rich-editor-content mark {
+  background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+/* Custom highlight colors */
+.rich-editor-content mark[data-color="#ffcc00"] { background-color: #ffcc0040; box-shadow: 0 0 0 1px #ffcc0030; color: #ffcc00; }
+.rich-editor-content mark[data-color="#ff0000"] { background-color: #ff000040; box-shadow: 0 0 0 1px #ff000030; color: #ff0000; }
+.rich-editor-content mark[data-color="#00ff00"] { background-color: #00ff0040; box-shadow: 0 0 0 1px #00ff0030; color: #00ff00; }
+.rich-editor-content mark[data-color="#0000ff"] { background-color: #0000ff40; box-shadow: 0 0 0 1px #0000ff30; color: #0000ff; }
+
+/* Placeholder */
+.rich-editor-content .is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--color-text-faint);
+  pointer-events: none;
+  height: 0;
+}
+
+/* Lists */
+.rich-editor-content ul, .rich-editor-content ol {
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+.rich-editor-content li p {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Task lists */
+.rich-editor-content ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+}
+.rich-editor-content ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+.rich-editor-content ul[data-type="taskList"] input[type="checkbox"] {
+  @apply mt-1 cursor-pointer accent-[var(--color-accent)];
+}
+
+/* Horizontal Rule */
+.rich-editor-content hr {
+  @apply my-8 border-none h-px bg-[var(--color-border-subtle)];
+}
