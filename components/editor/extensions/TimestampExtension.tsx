@@ -6,28 +6,44 @@ import type { NodeViewProps } from '@tiptap/react'
 import React from 'react'
 import { formatSeconds } from '@/lib/utils'
 
-function TimestampNodeView({ node, extension }: NodeViewProps) {
+import { Clock } from 'lucide-react'
+
+function TimestampNodeView({ node, extension, updateAttributes }: NodeViewProps) {
   const timeSeconds = node.attrs['timeSeconds'] as number ?? 0
   const label = node.attrs['label'] as string ?? ''
   const onSeek = (extension.options as { onSeek?: (s: number) => void }).onSeek
 
-  const handleClick = () => onSeek?.(timeSeconds)
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.shiftKey || e.altKey) {
+      const newLabel = window.prompt('Edit label for this timestamp:', label)
+      if (newLabel !== null) updateAttributes({ label: newLabel })
+      return
+    }
+    onSeek?.(timeSeconds)
+  }
+
+  const handleDoubleClick = () => {
+    const newLabel = window.prompt('Edit label for this timestamp:', label)
+    if (newLabel !== null) updateAttributes({ label: newLabel })
+  }
 
   return (
     <NodeViewWrapper as="span" className="inline-block select-none">
       <button
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         contentEditable={false}
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-mono font-semibold cursor-pointer select-none mx-0.5 transition-colors"
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-mono font-semibold cursor-pointer select-none mx-0.5 transition-colors hover:bg-[color-mix(in_srgb,var(--color-accent)_25%,transparent)]"
         style={{
           background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)',
           color: 'var(--color-accent)',
           border: '1px solid color-mix(in srgb, var(--color-accent) 25%, transparent)',
         }}
-        title={label ? `Seek to ${formatSeconds(timeSeconds)} — ${label}` : `Seek to ${formatSeconds(timeSeconds)}`}
+        title={label ? `Seek to ${formatSeconds(timeSeconds)} — ${label}\nDouble-click to edit label` : `Seek to ${formatSeconds(timeSeconds)}\nDouble-click to edit label`}
       >
-        ⏱ {formatSeconds(timeSeconds)}
-        {label && <span className="font-sans font-normal opacity-80">· {label}</span>}
+        <Clock className="h-3 w-3" />
+        {formatSeconds(timeSeconds)}
+        {label && <span className="font-sans font-normal opacity-80 border-l border-current pl-1 ml-1">{label}</span>}
       </button>
     </NodeViewWrapper>
   )

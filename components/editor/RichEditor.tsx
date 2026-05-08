@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useCallback } from 'react'
+import { useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -33,7 +33,9 @@ import { CommandBlockExtension } from './extensions/CommandBlockExtension'
 import { BubbleToolbar } from './BubbleToolbar'
 import { createSlashMenuExtension } from './SlashMenu'
 import { EditorContextMenu } from './EditorContextMenu'
+import { tipTapContentToMarkdown } from '@/lib/utils/editorConvert'
 import { cn } from '@/lib/utils'
+import type { JSONContent } from '@tiptap/core'
 import type { VideoPanelRef } from '@/components/studio/VideoPanel'
 
 const lowlight = createLowlight()
@@ -92,11 +94,10 @@ export function RichEditor({
     content: richJson ?? content,
     editable: !readOnly,
     onUpdate: ({ editor }) => {
-      const json = editor.getJSON() as Record<string, unknown>
-      lastJson.current = json
-      // Convert to markdown via text content for simplicity
-      const text = editor.getText()
-      onChange(text, json)
+      const json = editor.getJSON() as JSONContent
+      lastJson.current = json as Record<string, unknown>
+      const markdown = tipTapContentToMarkdown(json)
+      onChange(markdown, json as Record<string, unknown>)
     },
     editorProps: {
       attributes: {
@@ -111,8 +112,8 @@ export function RichEditor({
   return (
     <div className="relative flex flex-col h-full">
       {editor && <BubbleToolbar editor={editor} />}
-
       {editor && <EditorContextMenu editor={editor} videoPlayerRef={videoPlayerRef} />}
+      
       <EditorContent
         editor={editor}
         className={cn(

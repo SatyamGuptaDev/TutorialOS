@@ -3,6 +3,7 @@ import type { AIProvider, AIConfig } from '@/types'
 interface CompleteParams {
   prompt: string
   systemPrompt?: string
+  messages?: { role: 'user' | 'assistant'; content: string }[]
   maxTokens?: number
   temperature?: number
 }
@@ -70,6 +71,10 @@ export class AIClient {
     }
   }
 
+  private getHistoryMessages(params: CompleteParams) {
+    return params.messages?.map(m => ({ role: m.role, content: m.content })) || []
+  }
+
   private async callOpenAI(params: CompleteParams, signal: AbortSignal): Promise<string> {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -81,6 +86,7 @@ export class AIClient {
         model: this.config.model || 'gpt-4o',
         messages: [
           ...(params.systemPrompt ? [{ role: 'system', content: params.systemPrompt }] : []),
+          ...this.getHistoryMessages(params),
           { role: 'user', content: params.prompt },
         ],
         max_tokens: params.maxTokens,
@@ -98,8 +104,16 @@ export class AIClient {
     const model = this.config.model || 'gemini-2.5-flash'
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this.config.apiKey}`
     
+    const history = params.messages?.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    })) || []
+
     const body: any = {
-      contents: [{ role: 'user', parts: [{ text: params.prompt }] }],
+      contents: [
+        ...history,
+        { role: 'user', parts: [{ text: params.prompt }] }
+      ],
       generationConfig: {
         maxOutputTokens: params.maxTokens,
         temperature: params.temperature ?? 0.7,
@@ -125,6 +139,13 @@ export class AIClient {
   }
 
   private async callGroq(params: CompleteParams, signal: AbortSignal): Promise<string> {
+    const model = this.config.model || 'llama-3.3-70b-versatile'
+    
+    // Whisper models are for speech-to-text, not chat completions
+    if (model.includes('whisper')) {
+      return 'Error: Whisper models are for audio transcription and cannot be used for text chat. Please select a different model in settings.'
+    }
+
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -132,9 +153,10 @@ export class AIClient {
         Authorization: `Bearer ${this.config.apiKey}`,
       },
       body: JSON.stringify({
-        model: this.config.model || 'llama-3.3-70b-versatile',
+        model,
         messages: [
           ...(params.systemPrompt ? [{ role: 'system', content: params.systemPrompt }] : []),
+          ...this.getHistoryMessages(params),
           { role: 'user', content: params.prompt },
         ],
         max_tokens: params.maxTokens,
@@ -160,7 +182,10 @@ export class AIClient {
       body: JSON.stringify({
         model: this.config.model || 'claude-3-5-sonnet-20241022',
         system: params.systemPrompt,
-        messages: [{ role: 'user', content: params.prompt }],
+        messages: [
+          ...this.getHistoryMessages(params),
+          { role: 'user', content: params.prompt }
+        ],
         max_tokens: params.maxTokens || 1024,
         temperature: params.temperature ?? 0.7,
       }),
@@ -183,6 +208,7 @@ export class AIClient {
         model: this.config.model || 'mistral-large-latest',
         messages: [
           ...(params.systemPrompt ? [{ role: 'system', content: params.systemPrompt }] : []),
+          ...this.getHistoryMessages(params),
           { role: 'user', content: params.prompt },
         ],
         max_tokens: params.maxTokens,

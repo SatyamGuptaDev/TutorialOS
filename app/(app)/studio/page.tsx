@@ -1,6 +1,5 @@
 'use client'
 
-import type { Metadata } from 'next'
 import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useStudioStore } from '@/stores/studioStore'
@@ -13,7 +12,6 @@ import { TimestampsPanel } from '@/components/panels/TimestampsPanel'
 import { QuickCapturePanel } from '@/components/panels/QuickCapturePanel'
 import { DoubtsPanel } from '@/components/panels/DoubtsPanel'
 import { CommandsPanel } from '@/components/panels/CommandsPanel'
-import { useStudioStore as useStore } from '@/stores/studioStore'
 import { cn } from '@/lib/utils'
 
 import { AIPanel } from '@/components/ai/AIPanel'

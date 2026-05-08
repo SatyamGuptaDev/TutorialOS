@@ -108,8 +108,7 @@ interface StudioState {
 
   // Actions — Editor
   setEditorMode: (mode: EditorMode) => void
-  updateMarkdown: (content: string) => void
-  updateRichContent: (json: Record<string, unknown>) => void
+  updateContent: (markdown: string, json: Record<string, unknown>) => void
 
   // Actions — Session
   saveSession: (userId: string) => Promise<void>
@@ -250,19 +249,8 @@ export const useStudioStore = create<StudioState>()(
       // ── Editor ────────────────────────────────────────────
       setEditorMode: (mode) => set({ editorMode: mode }),
 
-      updateMarkdown: (content) => {
-        set({ markdownContent: content, isDirty: true })
-        if (autosaveTimer) clearTimeout(autosaveTimer)
-        const userId = get().currentSession?.userId ?? ''
-        if (userId) {
-          autosaveTimer = setTimeout(() => {
-            get().saveSession(userId)
-          }, 1800)
-        }
-      },
-
-      updateRichContent: (json) => {
-        set({ richContent: json, isDirty: true })
+      updateContent: (markdown, json) => {
+        set({ markdownContent: markdown, richContent: json, isDirty: true })
         if (autosaveTimer) clearTimeout(autosaveTimer)
         const userId = get().currentSession?.userId ?? ''
         if (userId) {

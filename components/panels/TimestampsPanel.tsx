@@ -8,8 +8,8 @@ import { useStudioStore } from '@/stores/studioStore'
 import { useAuthStore } from '@/stores/authStore'
 import { PanelContainer } from './PanelContainer'
 import { Button } from '@/components/ui/button'
-import { generateId, formatSeconds } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+import { formatSeconds } from '@/lib/utils'
+import { addTimestamp, deleteTimestamp } from '@/lib/db/mutations'
 
 export function TimestampsPanel() {
   const user = useAuthStore((s) => s.user)
@@ -37,20 +37,18 @@ export function TimestampsPanel() {
   const handleAdd = async () => {
     if (!currentSession || !user) return
     const seconds = parseTime(timeInput)
-    await db.timestamps.add({
-      id: generateId(),
+    await addTimestamp({
       sessionId: currentSession.id,
       userId: user.id,
       timeSeconds: seconds,
       label: labelInput,
-      createdAt: new Date().toISOString(),
     })
     setTimeInput('')
     setLabelInput('')
   }
 
   const handleDelete = async (id: string) => {
-    await db.timestamps.delete(id)
+    await deleteTimestamp(id)
   }
 
   return (

@@ -8,8 +8,8 @@ import { useStudioStore } from '@/stores/studioStore'
 import { useAuthStore } from '@/stores/authStore'
 import { PanelContainer } from './PanelContainer'
 import { Button } from '@/components/ui/button'
-import { generateId } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { addDoubt, resolveDoubt, deleteDoubt as deleteDoubtMutation } from '@/lib/db/mutations'
 
 type FilterTab = 'all' | 'open' | 'resolved'
 
@@ -30,27 +30,25 @@ export function DoubtsPanel() {
     filter === 'all' ? true : d.status === filter
   )
 
-  const addDoubt = async () => {
+  const handleAddDoubt = async () => {
     if (!newText.trim() || !user) return
-    await db.doubts.add({
-      id: generateId(),
+    await addDoubt({
       userId: user.id,
       sessionId: currentSession?.id ?? null,
       text: newText.trim(),
       timestampSeconds: null,
       status: 'open',
-      createdAt: new Date().toISOString(),
       resolvedAt: null,
     })
     setNewText('')
   }
 
   const resolve = async (id: string) => {
-    await db.doubts.update(id, { status: 'resolved', resolvedAt: new Date().toISOString() })
+    await resolveDoubt(id)
   }
 
-  const deleteDoubt = async (id: string) => {
-    await db.doubts.delete(id)
+  const handleDelete = async (id: string) => {
+    await deleteDoubtMutation(id)
   }
 
   return (
@@ -62,9 +60,9 @@ export function DoubtsPanel() {
           onChange={(e) => setNewText(e.target.value)}
           placeholder="What's unclear?"
           className="flex-1 h-7 px-2 text-xs rounded-[var(--radius-sm)] bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
-          onKeyDown={(e) => e.key === 'Enter' && addDoubt()}
+          onKeyDown={(e) => e.key === 'Enter' && handleAddDoubt()}
         />
-        <Button size="xs" onClick={addDoubt} disabled={!newText.trim()}>
+        <Button size="xs" onClick={handleAddDoubt} disabled={!newText.trim()}>
           <Plus className="h-3 w-3" />
         </Button>
       </div>
@@ -102,7 +100,7 @@ export function DoubtsPanel() {
                   <CheckCircle2 className="h-3 w-3" />
                 </button>
               )}
-              <button onClick={() => deleteDoubt(doubt.id)} className="h-5 w-5 flex items-center justify-center text-[var(--color-error)] hover:bg-[color-mix(in_srgb,var(--color-error)_10%,transparent)] rounded transition-all">
+              <button onClick={() => handleDelete(doubt.id)} className="h-5 w-5 flex items-center justify-center text-[var(--color-error)] hover:bg-[color-mix(in_srgb,var(--color-error)_10%,transparent)] rounded transition-all">
                 <Trash2 className="h-3 w-3" />
               </button>
             </div>

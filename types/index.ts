@@ -42,6 +42,7 @@ export interface Timestamp {
   timeSeconds: number
   label: string
   createdAt: string
+  updatedAt: string
 }
 
 export interface Doubt {
@@ -52,6 +53,7 @@ export interface Doubt {
   timestampSeconds: number | null
   status: 'open' | 'resolved'
   createdAt: string
+  updatedAt: string
   resolvedAt: string | null
 }
 
@@ -63,6 +65,7 @@ export interface CommandSnippet {
   language: string
   topic: string
   createdAt: string
+  updatedAt: string
 }
 
 export interface ReviewItem {
@@ -76,6 +79,7 @@ export interface ReviewItem {
   intervalDays: number
   repetitions: number
   createdAt: string
+  updatedAt: string
   completedAt: string | null
 }
 
@@ -86,6 +90,7 @@ export interface UserSettings {
   fontSize: 'sm' | 'md' | 'lg'
   autoSave: boolean
   cloudSyncEnabled: boolean
+  syncIntervalMinutes: number // 0 = off, 5 | 10 | 30
   editorMode: EditorMode
   updatedAt: string
 }

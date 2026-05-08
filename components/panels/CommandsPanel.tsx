@@ -9,8 +9,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { PanelContainer } from './PanelContainer'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { generateId } from '@/lib/utils'
-import { cn } from '@/lib/utils'
+import { addCommand, deleteCommand } from '@/lib/db/mutations'
 
 const LANGUAGES = ['bash', 'python', 'javascript', 'typescript', 'sql', 'go', 'rust', 'other']
 
@@ -29,16 +28,14 @@ export function CommandsPanel() {
     [currentSession?.id]
   )
 
-  const addCommand = async () => {
+  const handleAddCommand = async () => {
     if (!cmd.trim() || !user) return
-    await db.commandSnippets.add({
-      id: generateId(),
+    await addCommand({
       userId: user.id,
       sessionId: currentSession?.id ?? null,
       command: cmd.trim(),
       language: lang,
       topic: topic.trim(),
-      createdAt: new Date().toISOString(),
     })
     setCmd('')
     setTopic('')
@@ -48,6 +45,10 @@ export function CommandsPanel() {
     await navigator.clipboard.writeText(text)
     setCopiedId(id)
     setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const handleDelete = async (id: string) => {
+    await deleteCommand(id)
   }
 
   return (
@@ -76,7 +77,7 @@ export function CommandsPanel() {
             className="flex-1 h-7 px-2 text-xs rounded-[var(--radius-sm)] bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text)] focus:outline-none focus:border-[var(--color-accent)]"
           />
         </div>
-        <Button size="xs" onClick={addCommand} disabled={!cmd.trim()}>
+        <Button size="xs" onClick={handleAddCommand} disabled={!cmd.trim()}>
           <Plus className="h-3 w-3" /> Add
         </Button>
       </div>

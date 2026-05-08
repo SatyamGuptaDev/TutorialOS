@@ -2,38 +2,38 @@
 
 import { useState } from 'react'
 import { Zap, ArrowDown, HelpCircle, Terminal, X } from 'lucide-react'
-import { db } from '@/lib/db/schema'
 import { useStudioStore } from '@/stores/studioStore'
 import { useAuthStore } from '@/stores/authStore'
 import { PanelContainer } from './PanelContainer'
 import { Button } from '@/components/ui/button'
-import { generateId } from '@/lib/utils'
 import { toast } from '@/components/ui/toast'
+import { addDoubt, addCommand } from '@/lib/db/mutations'
 
 export function QuickCapturePanel() {
   const [text, setText] = useState('')
   const user = useAuthStore((s) => s.user)
   const currentSession = useStudioStore((s) => s.currentSession)
-  const updateMarkdown = useStudioStore((s) => s.updateMarkdown)
+  const updateContent = useStudioStore((s) => s.updateContent)
   const markdownContent = useStudioStore((s) => s.markdownContent)
 
-  const pushToNote = () => {
+  const pushToNote = async () => {
     if (!text.trim()) return
-    updateMarkdown(markdownContent + '\n\n' + text.trim())
+    const newMarkdown = markdownContent + '\n\n' + text.trim()
+    const { markdownToTipTapContent } = await import('@/lib/utils/editorConvert')
+    const newJson = markdownToTipTapContent(newMarkdown)
+    updateContent(newMarkdown, newJson)
     toast.success('Pushed to note')
     setText('')
   }
 
   const saveAsDoubt = async () => {
     if (!text.trim() || !user) return
-    await db.doubts.add({
-      id: generateId(),
+    await addDoubt({
       userId: user.id,
       sessionId: currentSession?.id ?? null,
       text: text.trim(),
       timestampSeconds: null,
       status: 'open',
-      createdAt: new Date().toISOString(),
       resolvedAt: null,
     })
     toast.success('Saved as doubt')
@@ -42,14 +42,12 @@ export function QuickCapturePanel() {
 
   const saveAsCommand = async () => {
     if (!text.trim() || !user) return
-    await db.commandSnippets.add({
-      id: generateId(),
+    await addCommand({
       userId: user.id,
       sessionId: currentSession?.id ?? null,
       command: text.trim(),
       language: 'bash',
       topic: '',
-      createdAt: new Date().toISOString(),
     })
     toast.success('Saved as command')
     setText('')

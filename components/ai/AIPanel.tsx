@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { AIClient } from '@/lib/ai/AIClient'
 import { loadKey } from '@/lib/ai/keyStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useStudioStore } from '@/stores/studioStore'
 import { db } from '@/lib/db/schema'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +24,9 @@ interface Message {
 export function AIPanel() {
   const router = useRouter()
   const user = useAuthStore((s) => s.user)
+  const currentSession = useStudioStore((s) => s.currentSession)
+  const sessionId = currentSession?.id || 'default'
+  
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -34,10 +38,6 @@ export function AIPanel() {
     async function initAI() {
       if (!user) return
       
-      const settings = await db.userSettings.get(user.id)
-      const providerStr = settings?.theme || 'openai' // Hack: since we don't have active_ai_provider in UserSettings yet, let's just default to openai, or we can check all
-      
-      // Let's try to find an active provider by checking keys
       const providers: AIProvider[] = ['openai', 'gemini', 'claude', 'groq', 'mistral']
       let activeClient = null
 
@@ -47,7 +47,7 @@ export function AIPanel() {
           activeClient = new AIClient({
             provider: p,
             apiKey: key,
-            model: '', // Fallback to default in AIClient
+            model: '', 
             enabled: true,
           })
           break
@@ -61,6 +61,49 @@ export function AIPanel() {
     initAI()
   }, [user])
 
+  // Handle external AI queries (from context menu or slash menu)
+  useEffect(() => {
+    const handleExternalQuery = (e: any) => {
+      const text = e.detail?.text
+      if (text) {
+        setInput(`Explain this part of my notes: "${text}"`)
+        // Auto-send if it's a specific query
+        setTimeout(() => {
+          const btn = document.getElementById('ai-send-button')
+          btn?.click()
+        }, 100)
+      } else {
+        setInput('')
+      }
+    }
+
+    window.addEventListener('ai-panel-query', handleExternalQuery)
+    return () => window.removeEventListener('ai-panel-query', handleExternalQuery)
+  }, [])
+
+  // Load chat history from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(`ai_chat_${sessionId}`)
+    if (saved) {
+      try {
+        setMessages(JSON.parse(saved))
+      } catch (e) {
+        console.error('Failed to parse chat history', e)
+      }
+    } else {
+      setMessages([])
+    }
+  }, [sessionId])
+
+  // Save chat history to localStorage
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(`ai_chat_${sessionId}`, JSON.stringify(messages))
+    } else {
+      localStorage.removeItem(`ai_chat_${sessionId}`)
+    }
+  }, [messages, sessionId])
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
@@ -69,14 +112,22 @@ export function AIPanel() {
     if (!input.trim() || !client) return
 
     const userMessage: Message = { id: Date.now().toString(), role: 'user', content: input.trim() }
-    setMessages((prev) => [...prev, userMessage])
+    const updatedMessages = [...messages, userMessage]
+    setMessages(updatedMessages)
     setInput('')
     setIsLoading(true)
 
     try {
+      // Sliding window: last 10 messages for context
+      const historyWindow = messages.slice(-10).map(m => ({
+        role: m.role,
+        content: m.content
+      }))
+
       const response = await client.complete({
         prompt: userMessage.content,
         systemPrompt: 'You are TutorialOS AI, a helpful learning assistant. Provide clear, concise answers. Format with Markdown.',
+        messages: historyWindow,
       })
 
       const aiMessage: Message = { id: (Date.now() + 1).toString(), role: 'assistant', content: response }
@@ -86,6 +137,11 @@ export function AIPanel() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleClear = () => {
+    setMessages([])
+    localStorage.removeItem(`ai_chat_${sessionId}`)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -116,7 +172,7 @@ export function AIPanel() {
           <Sparkles className="h-4 w-4 text-[var(--color-accent)]" />
           Learning Assistant
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setMessages([])} title="Clear chat">
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleClear} title="Clear chat">
           <Trash2 className="h-3.5 w-3.5 text-[var(--color-text-muted)]" />
         </Button>
       </div>
@@ -174,6 +230,7 @@ export function AIPanel() {
             disabled={isLoading}
           />
           <Button
+            id="ai-send-button"
             size="icon"
             variant="ghost"
             onClick={handleSend}

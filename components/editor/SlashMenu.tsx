@@ -38,18 +38,13 @@ const buildCommands = (videoRef?: React.RefObject<VideoPanelRef | null>): SlashC
   {
     id: 'youtube', title: 'YouTube Video', description: 'Embed a video from YouTube', icon: FileText,
     action: (e) => {
-      const url = window.prompt('Enter YouTube URL:')
-      if (url) {
-        // We can use a custom node or just an iframe
-        e.chain().focus().insertContent(`<iframe src="${url.replace('watch?v=', 'embed/')}" width="100%" height="400"></iframe>`).run()
-      }
+      e.chain().focus().insertContent(`<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" width="100%" height="400"></iframe>`).run()
     }
   },
   {
     id: 'image', title: 'Image', description: 'Upload or link an image', icon: FileText,
     action: (e) => {
-      const url = window.prompt('Enter Image URL:')
-      if (url) e.chain().focus().setImage({ src: url }).run()
+      e.chain().focus().setImage({ src: 'https://placehold.co/600x400?text=Placeholder+Image' }).run()
     }
   },
   {
@@ -78,8 +73,7 @@ const buildCommands = (videoRef?: React.RefObject<VideoPanelRef | null>): SlashC
   {
     id: 'doubt', title: 'Doubt', description: 'Mark a question/doubt', icon: HelpCircle,
     action: (e) => {
-      const text = window.prompt('Enter your doubt:') ?? 'Doubt'
-      e.chain().focus().insertContent({ type: 'doubt', attrs: { text } }).run()
+      e.chain().focus().insertContent({ type: 'doubt', attrs: { text: 'Type your doubt here...' } }).run()
     }
   },
   {
@@ -114,12 +108,8 @@ const buildCommands = (videoRef?: React.RefObject<VideoPanelRef | null>): SlashC
   },
   {
     id: 'ai', title: 'Ask AI', description: 'Ask the study coach about this', icon: Sparkles,
-    action: (e) => {
-      const query = window.prompt('Ask AI:')
-      if (query) {
-        // Placeholder for AI action
-        e.chain().focus().insertContent(`<blockquote><strong>AI Query:</strong> ${query}</blockquote>`).run()
-      }
+    action: () => {
+      window.dispatchEvent(new CustomEvent('ai-panel-query', { detail: { text: '' } }))
     }
   },
 ]
@@ -161,8 +151,8 @@ function SlashMenuList({ items, command }: SlashMenuListProps) {
   return (
     <div className={cn(
       'w-64 max-h-72 overflow-y-auto rounded-[var(--radius-md)] p-1.5',
-      'bg-[var(--color-surface)] border border-[var(--color-border)]',
-      'shadow-[0_8px_32px_rgba(0,0,0,0.3)] scrollbar-none'
+      'glass shadow-[0_8px_32px_rgba(0,0,0,0.5)] scrollbar-none',
+      'animate-in fade-in slide-in-from-top-2 duration-150'
     )}>
       {items.map((item, i) => {
         const Icon = item.icon

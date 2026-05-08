@@ -16,8 +16,7 @@ export function EditorBody() {
   const editorMode = useStudioStore((s) => s.editorMode)
   const markdownContent = useStudioStore((s) => s.markdownContent)
   const richContent = useStudioStore((s) => s.richContent)
-  const updateMarkdown = useStudioStore((s) => s.updateMarkdown)
-  const updateRichContent = useStudioStore((s) => s.updateRichContent)
+  const updateContent = useStudioStore((s) => s.updateContent)
   const videoRef = useRef<VideoPanelRef>(null)
 
   const showVideo = layout !== 'notes-only' && focusMode !== 'zen' && focusMode !== 'notes-only'
@@ -44,7 +43,7 @@ export function EditorBody() {
           mode={editorMode}
           content={markdownContent}
           richJson={richContent}
-          onChange={(md, json) => { updateMarkdown(md); updateRichContent(json) }}
+          onChange={(md, json) => updateContent(md, json)}
           videoPlayerRef={videoRef}
         />
       </div>

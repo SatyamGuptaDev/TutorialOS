@@ -314,3 +314,21 @@
 .rich-editor-content hr {
   @apply my-8 border-none h-px bg-[var(--color-border-subtle)];
 }
+
+/* Callouts (Blockquote) */
+.rich-editor-content blockquote {
+  @apply p-4 my-4 bg-[var(--color-surface-2)] border-l-4 border-[var(--color-accent)] rounded-r-[var(--radius-sm)] text-[var(--color-text)] italic;
+}
+
+/* Code Blocks */
+.rich-editor-content pre {
+  @apply p-4 my-4 bg-[var(--color-surface-3)] text-[var(--color-text)] rounded-[var(--radius-sm)] font-mono text-sm overflow-x-auto border border-[var(--color-border-subtle)];
+}
+
+.rich-editor-content pre code {
+  @apply bg-transparent p-0 text-inherit font-mono;
+}
+
+.rich-editor-content p code {
+  @apply bg-[var(--color-surface-2)] text-[var(--color-accent)] px-1.5 py-0.5 rounded-[var(--radius-sm)] font-mono text-[0.85em] border border-[var(--color-border-subtle)];
+}

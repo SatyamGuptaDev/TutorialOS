@@ -95,6 +95,10 @@ const VideoPanel = forwardRef<VideoPanelRef, VideoPanelProps>(
       pause: () => playerRef.current?.pauseVideo(),
     }))
 
+    // Store onTitleReady in a stable ref to avoid re-creating initYouTubePlayer on every render
+    const onTitleReadyRef = useRef(onTitleReady)
+    useEffect(() => { onTitleReadyRef.current = onTitleReady }, [onTitleReady])
+
     // Extract YouTube video ID from embed URL
     const getYouTubeId = (embedUrl: string) => {
       const match = embedUrl.match(/embed\/([a-zA-Z0-9_-]+)/)
@@ -130,7 +134,8 @@ const VideoPanel = forwardRef<VideoPanelRef, VideoPanelProps>(
             setHasError(false)
             try {
               const title = event.target.getVideoData?.()?.title
-              if (title) onTitleReady?.(title)
+              // Use stable ref — never cause re-renders/re-inits from this callback
+              if (title) onTitleReadyRef.current?.(title)
             } catch {
               // getVideoData may not be available
             }
@@ -138,7 +143,8 @@ const VideoPanel = forwardRef<VideoPanelRef, VideoPanelProps>(
           onError: () => { setIsLoading(false); setHasError(true) },
         },
       }) as unknown as YTPlayer
-    }, [url, retryKey, onTitleReady])
+    // ✅ onTitleReady removed from deps — it's accessed via stable ref now
+    }, [url, retryKey])
 
     useEffect(() => {
       if (!url) return

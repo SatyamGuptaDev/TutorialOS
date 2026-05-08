@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useStudioStore } from '@/stores/studioStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useSyncStore } from '@/stores/syncStore'
 import {
   Columns2,
   AlignLeft,
@@ -21,6 +22,11 @@ import {
   HelpCircle,
   Terminal,
   Zap,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  AlertCircle,
+  Sparkles,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -77,6 +83,7 @@ export function StudioTopbar() {
   const panels = useStudioStore((s) => s.panels)
   const expandPanel = useStudioStore((s) => s.expandPanel)
   const hidePanel = useStudioStore((s) => s.hidePanel)
+  const togglePanel = useStudioStore((s) => s.togglePanel)
 
   const currentSession = useStudioStore((s) => s.currentSession)
   const setVideoTitle = useStudioStore((s) => s.setVideoTitle)
@@ -205,6 +212,23 @@ export function StudioTopbar() {
           ))}
         </div>
 
+        {/* AI Toggle */}
+        <Tooltip content="Toggle AI Coach (⌘J)">
+          <button
+            onClick={() => togglePanel('studyCoach')}
+            className={cn(
+              'h-7 px-2 flex items-center gap-1.5 rounded-[var(--radius-sm)] text-xs font-medium ml-1',
+              'transition-colors duration-[var(--duration-fast)]',
+              panels.studyCoach.visible && !panels.studyCoach.collapsed
+                ? 'bg-[var(--color-primary-muted)] text-[var(--color-primary)]'
+                : 'text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)]'
+            )}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span className="hidden lg:block">AI Coach</span>
+          </button>
+        </Tooltip>
+
         {/* View Panels Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -263,12 +287,12 @@ export function StudioTopbar() {
         <div className="h-5 w-px bg-[var(--color-border-subtle)]" />
 
         {/* Save button */}
-        <SaveStatus
+        <SaveSyncStatus
           isDirty={isDirty}
           isSaving={isSaving}
           lastSavedAt={lastSavedAt}
           onSave={() => saveSession(userId)}
-          disabled={!isDirty || !currentSession}
+          disabled={!isDirty && useSyncStore.getState().pendingCount === 0 || !currentSession}
         />
       </div>
 
@@ -293,7 +317,7 @@ export function StudioTopbar() {
   )
 }
 
-function SaveStatus({
+function SaveSyncStatus({
   isDirty,
   isSaving,
   lastSavedAt,
@@ -306,6 +330,11 @@ function SaveStatus({
   onSave: () => void
   disabled: boolean
 }) {
+  const syncStatus = useSyncStore((s) => s.status)
+  const syncError = useSyncStore((s) => s.error)
+  const pendingCount = useSyncStore((s) => s.pendingCount)
+  const triggerSync = useSyncStore((s) => s.triggerSync)
+
   const [timeAgo, setTimeAgo] = useState('')
 
   useEffect(() => {
@@ -323,28 +352,54 @@ function SaveStatus({
     return () => clearInterval(interval)
   }, [lastSavedAt, isSaving])
 
-  const text = isSaving 
-    ? 'Saving...' 
-    : isDirty 
-      ? 'Save' 
-      : timeAgo || 'Saved'
+  const handleAction = () => {
+    if (isDirty) {
+      onSave()
+    } else if (pendingCount > 0) {
+      triggerSync()
+    }
+  }
 
-  const icon = isSaving 
-    ? undefined 
-    : isDirty 
-      ? <span className="text-[var(--color-warning)] mr-1">●</span>
-      : <Check className="h-3.5 w-3.5 text-[var(--color-success)]" />
+  const isSyncing = syncStatus === 'syncing'
+  const isError = syncStatus === 'error'
+
+  let text = timeAgo || 'Saved'
+  if (isSaving) text = 'Saving...'
+  else if (isDirty) text = 'Save'
+  else if (isSyncing) text = 'Syncing...'
+  else if (isError) text = 'Sync Error'
+  else if (pendingCount > 0) text = `Sync (${pendingCount})`
+
+  let icon = null
+  if (isSaving) {
+    icon = <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1" />
+  } else if (isDirty) {
+    icon = <span className="text-[var(--color-warning)] mr-1">●</span>
+  } else if (isSyncing) {
+    icon = <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1 text-[var(--color-accent)]" />
+  } else if (isError) {
+    icon = <AlertCircle className="h-3.5 w-3.5 mr-1 text-[var(--color-error)]" />
+  } else if (pendingCount > 0) {
+    icon = <Cloud className="h-3.5 w-3.5 mr-1 text-[var(--color-text-muted)]" />
+  } else if (syncStatus === 'offline') {
+    icon = <CloudOff className="h-3.5 w-3.5 mr-1 text-[var(--color-text-muted)]" />
+  } else {
+    icon = <Check className="h-3.5 w-3.5 text-[var(--color-success)] mr-1" />
+  }
+
+  const tooltipContent = isDirty ? 'Save (⌘S)' : pendingCount > 0 ? 'Click to Sync' : lastSavedAt ? timeAgo : 'No changes'
+  const buttonDisabled = disabled && pendingCount === 0
 
   return (
-    <Tooltip content={isDirty ? 'Save (⌘S)' : lastSavedAt ? timeAgo : 'No changes'}>
+    <Tooltip content={tooltipContent}>
       <Button
         size="sm"
-        variant={isDirty ? 'default' : 'ghost'}
-        onClick={onSave}
-        disabled={disabled || isSaving}
-        leftIcon={isDirty || isSaving ? undefined : icon}
+        variant={isDirty || pendingCount > 0 ? 'default' : 'ghost'}
+        onClick={handleAction}
+        disabled={buttonDisabled || isSaving || isSyncing}
+        className="min-w-[80px]"
       >
-        {isDirty && icon}
+        {icon}
         {text}
       </Button>
     </Tooltip>

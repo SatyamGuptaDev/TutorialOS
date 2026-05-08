@@ -15,8 +15,8 @@ export interface PullResult {
 }
 
 // Simple case converters for payloads
-function toSnakeCasePayload(payload: Record<string, any>): Record<string, any> {
-  const result: Record<string, any> = {}
+function toSnakeCasePayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(payload)) {
     const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
     result[snakeKey] = value
@@ -24,8 +24,8 @@ function toSnakeCasePayload(payload: Record<string, any>): Record<string, any> {
   return result
 }
 
-function toCamelCasePayload(payload: Record<string, any>): Record<string, any> {
-  const result: Record<string, any> = {}
+function toCamelCasePayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(payload)) {
     const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
     result[camelKey] = value
@@ -68,6 +68,22 @@ export class SyncEngine {
     window.addEventListener('offline', this.offlineHandler)
   }
 
+  startAutoSync(intervalMinutes: number): void {
+    this.stopAutoSync()
+    if (intervalMinutes <= 0) return
+    const ms = intervalMinutes * 60 * 1000
+    this.syncInterval = setInterval(() => {
+      this.sync().catch((e) => console.error('Auto-sync error:', e))
+    }, ms)
+  }
+
+  stopAutoSync(): void {
+    if (this.syncInterval !== null) {
+      clearInterval(this.syncInterval)
+      this.syncInterval = null
+    }
+  }
+
   async push(): Promise<PushResult> {
     if (!navigator.onLine) return { pushed: 0, failed: 0, skipped: true, reason: 'offline' }
     if (!this.userId) return { pushed: 0, failed: 0, skipped: true, reason: 'no_user' }
@@ -79,7 +95,7 @@ export class SyncEngine {
     let failed = 0
 
     // Group items by table and operation
-    const grouped: Record<string, { upsert: any[], delete: string[], queueIdsToDelete: number[] }> = {}
+    const grouped: Record<string, { upsert: unknown[]; delete: string[]; queueIdsToDelete: number[] }> = {}
 
     for (const item of items) {
       const tableName = this.TABLE_MAP[item.entityType]
@@ -87,7 +103,7 @@ export class SyncEngine {
         await db.syncQueue.delete(item.localId!)
         continue
       }
-      
+
       if (!grouped[tableName]) {
         grouped[tableName] = { upsert: [], delete: [], queueIdsToDelete: [] }
       }
@@ -96,7 +112,7 @@ export class SyncEngine {
 
       if (item.operation === 'upsert') {
         const snakePayload = toSnakeCasePayload(item.payload)
-        snakePayload.user_id = this.userId
+        ;(snakePayload as Record<string, unknown>).user_id = this.userId
         grouped[tableName].upsert.push(snakePayload)
       } else if (item.operation === 'delete') {
         grouped[tableName].delete.push(item.entityId)
@@ -108,27 +124,30 @@ export class SyncEngine {
       try {
         // Bulk Upsert
         if (ops.upsert.length > 0) {
-          const { error } = await (supabase as any)
-            .from(tableName)
-            .upsert(ops.upsert, { onConflict: tableName === 'user_settings' ? 'user_id' : 'id' })
-          
+          const { error } = await (supabase as unknown as {
+            from: (table: string) => {
+              upsert: (data: unknown[], options: Record<string, unknown>) => Promise<{ error: Error | null }>
+            }
+          }).from(tableName).upsert(ops.upsert, { onConflict: tableName === 'user_settings' ? 'user_id' : 'id' })
+
           if (error) throw error
           pushed += ops.upsert.length
         }
 
         // Bulk Delete (or Soft Delete)
         if (ops.delete.length > 0) {
+          const sbClient = supabase as unknown as {
+            from: (table: string) => {
+              update: (data: unknown) => { in: (col: string, ids: string[]) => Promise<{ error: Error | null }> }
+              delete: () => { in: (col: string, ids: string[]) => Promise<{ error: Error | null }> }
+            }
+          }
+
           if (tableName === 'sessions') {
-            const { error } = await (supabase as any)
-              .from(tableName)
-              .update({ is_deleted: true })
-              .in('id', ops.delete)
+            const { error } = await sbClient.from(tableName).update({ is_deleted: true }).in('id', ops.delete)
             if (error) throw error
           } else {
-            const { error } = await (supabase as any)
-              .from(tableName)
-              .delete()
-              .in('id', ops.delete)
+            const { error } = await sbClient.from(tableName).delete().in('id', ops.delete)
             if (error) throw error
           }
           pushed += ops.delete.length
@@ -141,7 +160,7 @@ export class SyncEngine {
         failed += ops.queueIdsToDelete.length
       }
     }
-    
+
     // Update live count
     const pendingCount = await db.syncQueue.count()
     useSyncStore.getState().setPendingCount(pendingCount)
@@ -153,28 +172,35 @@ export class SyncEngine {
     if (!navigator.onLine) return { pulled: 0, skipped: true }
     if (!this.userId) return { pulled: 0, skipped: true }
 
+    // Gate behind cloudSyncEnabled — do NOT pull if sync is disabled
+    const settings = await db.userSettings.get(this.userId)
+    if (!settings?.cloudSyncEnabled) return { pulled: 0, skipped: true }
+
     let totalPulled = 0
 
     for (const [entityType, tableName] of Object.entries(this.TABLE_MAP)) {
-      if (tableName === 'user_settings') continue // Handled separately if needed, but let's just pull it too
 
-      let query = supabase.from(tableName as any).select('*').eq('user_id', this.userId)
-      
-      if (this.lastSyncedAt) {
-        // updated_at must exist on all tables for this to work perfectly.
-        // For simplicity, assuming updated_at or created_at exists.
-        // The instructions say `updated_at > lastSyncedAt`. We'll just do updated_at.
-        // Wait, timestamps table might only have created_at. Let's use created_at if updated_at is missing, but Supabase SDK doesn't let us conditionally check easily in a single query.
-        // Let's just fetch all for now if no updated_at. Wait, we can fetch all and bulkPut. 
-        // IndexedDB is fast, but let's try to filter by updated_at if entity is sessions, doubts.
-        if (['sessions', 'user_settings'].includes(tableName)) {
-           query = query.gt('updated_at', this.lastSyncedAt.toISOString())
-        } else {
-           query = query.gt('created_at', this.lastSyncedAt.toISOString())
+      type SupabaseTable = {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            gt: (col: string, val: string) => Promise<{ data: Record<string, unknown>[] | null; error: Error | null }>
+            then: (fn: (r: { data: Record<string, unknown>[] | null; error: Error | null }) => void) => void
+          }
+          then: (fn: (r: { data: Record<string, unknown>[] | null; error: Error | null }) => void) => void
         }
       }
 
-      const { data, error } = await query
+      const sbClient = supabase as unknown as { from: (t: string) => SupabaseTable }
+
+      let query = sbClient.from(tableName).select('*').eq('user_id', this.userId)
+
+      const { data, error } = this.lastSyncedAt
+        ? await (query.gt(
+            'updated_at',
+            this.lastSyncedAt.toISOString()
+          ) as unknown as Promise<{ data: Record<string, unknown>[] | null; error: Error | null }>)
+        : await (query as unknown as Promise<{ data: Record<string, unknown>[] | null; error: Error | null }>)
+
       if (error) {
         console.error(`Sync pull error for ${tableName}:`, error)
         continue
@@ -182,48 +208,25 @@ export class SyncEngine {
 
       if (data && data.length > 0) {
         const camelData = data.map(toCamelCasePayload)
-        
-        // Conflict resolution: Last Write Wins.
-        // bulkPut will overwrite. However, if there are pending items in syncQueue for these entities, 
-        // we should arguably keep local if local is newer. 
-        // For simplicity, we just bulkPut. Local changes in sync queue will eventually push and overwrite anyway
-        // because their updatedAt will be newer.
-        // But if we pull, we overwrite local. We need to be careful.
-        // The instructions: "Remote pull only overwrites if remote.updatedAt > local.updatedAt".
-        
-        const table = (db as any)[entityType]
+
+        const table = (db as unknown as Record<string, { get: (id: string) => Promise<Record<string, unknown> | undefined>; put: (r: unknown) => Promise<void> }>)[entityType]
         if (!table) continue
 
         for (const remote of camelData) {
-          const local = await table.get(remote.id || remote.userId)
-          
+          const localId = (remote.id || remote.userId) as string
+          const local = await table.get(localId)
+
           if (local) {
-            const remoteDate = new Date(remote.updatedAt || remote.createdAt || 0).getTime()
-            const localDate = new Date(local.updatedAt || local.createdAt || 0).getTime()
-            
+            const remoteDate = new Date((remote.updatedAt || remote.createdAt || 0) as string).getTime()
+            const localDate = new Date((local.updatedAt || local.createdAt || 0) as string).getTime()
+
             if (remoteDate > localDate) {
               await table.put(remote)
               totalPulled++
-            } else if (remoteDate === localDate) {
-              // Same
-            } else {
-               // Conflict: both changed. Content conflict detection:
-               if (tableName === 'sessions' && remote.notesMarkdown !== local.notesMarkdown) {
-                  // Keep remote in hidden field? "remote_notesMarkdown" doesn't exist in schema.
-                  // Instructions: "Keep remote in hidden field, show subtle toast".
-                  // We'll skip the hidden field complexity for this scale, or just not overwrite.
-                  console.warn('Conflict detected, keeping local')
-                  // Optionally show a toast here.
-               }
             }
+            // If local is newer or same, keep local — it will push on next sync
           } else {
-            // Soft delete handle
-            if (tableName === 'sessions' && remote.isDeleted) {
-               // already deleted
-               await table.put(remote)
-            } else {
-               await table.put(remote)
-            }
+            await table.put(remote)
             totalPulled++
           }
         }
@@ -239,7 +242,7 @@ export class SyncEngine {
     if (this.isRunning) return
     if (!this.userId) return
 
-    // Respect user settings
+    // Respect user settings — abort immediately if cloud sync is disabled
     const settings = await db.userSettings.get(this.userId)
     if (!settings?.cloudSyncEnabled) {
       useSyncStore.getState().setStatus('idle')
@@ -255,16 +258,17 @@ export class SyncEngine {
       await this.push()
       await this.pull()
       store.setStatus('synced')
-    } catch (e: any) {
+    } catch (e) {
       console.error('Sync failed', e)
       store.setStatus('error')
-      store.setError(e.message || 'Unknown error')
+      store.setError(e instanceof Error ? e.message : 'Unknown error')
     } finally {
       this.isRunning = false
     }
   }
 
   cleanup(): void {
+    this.stopAutoSync()
     window.removeEventListener('online', this.onlineHandler)
     window.removeEventListener('offline', this.offlineHandler)
   }

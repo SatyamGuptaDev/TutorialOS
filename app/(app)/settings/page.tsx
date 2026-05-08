@@ -49,6 +49,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const syncStatus = useAppStore((s) => s.syncStatus)
   const triggerSync = useSyncStore((s) => s.triggerSync)
+  const updateSyncInterval = useSyncStore((s) => s.updateSyncInterval)
 
   const settings = useSettings(user?.id ?? '')
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
@@ -279,7 +280,43 @@ export default function SettingsPage() {
                   description="Sync your data securely with Supabase"
                 />
               </div>
-              
+
+              {settings.cloudSyncEnabled && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-[var(--color-text)]">Auto-Sync Interval</h3>
+                  <div className="grid grid-cols-4 gap-2">
+                    {([
+                      { label: 'Off', value: 0 },
+                      { label: '5 min', value: 5 },
+                      { label: '10 min', value: 10 },
+                      { label: '30 min', value: 30 },
+                    ] as { label: string; value: number }[]).map(({ label, value }) => {
+                      const isSelected = (settings.syncIntervalMinutes ?? 10) === value
+                      return (
+                        <button
+                          key={value}
+                          onClick={() => {
+                            updateSetting('syncIntervalMinutes', value)
+                            updateSyncInterval(value)
+                          }}
+                          className={cn(
+                            'flex items-center justify-center p-2.5 rounded-xl border-2 text-sm font-medium transition-all outline-none',
+                            isSelected
+                              ? 'border-[var(--color-accent)] bg-[color-mix(in_srgb,var(--color-accent)_8%,transparent)] text-[var(--color-text)]'
+                              : 'border-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:border-[var(--color-border)] hover:bg-[var(--color-surface-2)]'
+                          )}
+                        >
+                          {label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-[var(--color-text-faint)]">
+                    How often to automatically push local changes to the cloud. &ldquo;Off&rdquo; only syncs when you click &ldquo;Sync Now&rdquo;.
+                  </p>
+                </div>
+              )}
+
               <div className="p-4 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-surface-2)]">
                 <h3 className="text-sm font-medium text-[var(--color-text)] mb-4">Sync Status</h3>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

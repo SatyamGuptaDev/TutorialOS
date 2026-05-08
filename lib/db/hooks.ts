@@ -14,6 +14,7 @@ function defaultSettings(userId: string): UserSettings {
     fontSize: 'md',
     autoSave: true,
     cloudSyncEnabled: false,
+    syncIntervalMinutes: 10,
     editorMode: 'rich',
     updatedAt: new Date().toISOString(),
   }

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import {
   Bold, Italic, Underline, Strikethrough,
-  Link, Code, Eraser, Highlighter,
+  Link, Code, Eraser, Highlighter, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -63,6 +63,9 @@ export function BubbleToolbar({ editor }: BubbleToolbarProps) {
   const [position, setPosition] = useState({ top: 0, left: 0 })
   const [colorOpen, setColorOpen] = useState(false)
   const [highlightOpen, setHighlightOpen] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
+  const linkInputRef = useRef<HTMLInputElement>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -84,13 +87,14 @@ export function BubbleToolbar({ editor }: BubbleToolbarProps) {
         const rect = range.getBoundingClientRect()
 
         const toolbarHeight = 44
-        const top = rect.top + window.scrollY - toolbarHeight - 8
+        // rect coords are already viewport-relative (fixed positioning — do NOT add scrollY)
+        const top = rect.top - toolbarHeight - 8
         const left = Math.min(
-          rect.left + window.scrollX + rect.width / 2 - 180,
+          rect.left + rect.width / 2 - 180,
           window.innerWidth - 380
         )
 
-        setPosition({ top, left: Math.max(8, left) })
+        setPosition({ top: Math.max(8, top), left: Math.max(8, left) })
         setIsVisible(true)
       } catch {
         setIsVisible(false)
@@ -115,8 +119,8 @@ export function BubbleToolbar({ editor }: BubbleToolbarProps) {
     >
       <div className={cn(
         'flex items-center gap-0.5 p-1 rounded-[var(--radius-md)]',
-        'bg-[var(--color-surface)] border border-[var(--color-border)]',
-        'shadow-[0_4px_24px_rgba(0,0,0,0.3)]'
+        'glass shadow-[0_8px_32px_rgba(0,0,0,0.5)]',
+        'animate-in fade-in zoom-in-95 duration-100'
       )}>
         <ToolbarButton active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold (⌘B)">
           <Bold className="h-3.5 w-3.5" />
@@ -133,12 +137,58 @@ export function BubbleToolbar({ editor }: BubbleToolbarProps) {
 
         <ToolbarSep />
 
-        <ToolbarButton active={editor.isActive('link')} onClick={() => {
-          const url = window.prompt('URL:')
-          if (url) editor.chain().focus().setLink({ href: url }).run()
-        }} title="Link">
-          <Link className="h-3.5 w-3.5" />
-        </ToolbarButton>
+        {/* Link button with inline popover */}
+        <div className="relative">
+          <ToolbarButton
+            active={editor.isActive('link')}
+            onClick={() => {
+              setLinkUrl(editor.getAttributes('link').href as string ?? '')
+              setLinkOpen((prev) => !prev)
+              setColorOpen(false)
+              setHighlightOpen(false)
+              setTimeout(() => linkInputRef.current?.focus(), 50)
+            }}
+            title="Link"
+          >
+            <Link className="h-3.5 w-3.5" />
+          </ToolbarButton>
+          {linkOpen && (
+            <div className="absolute bottom-full left-0 mb-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-[var(--radius-md)] shadow-xl p-2 z-20 flex items-center gap-1.5" style={{ width: 240 }}>
+              <input
+                ref={linkInputRef}
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (linkUrl) editor.chain().focus().setLink({ href: linkUrl }).run()
+                    else editor.chain().focus().unsetLink().run()
+                    setLinkOpen(false)
+                  }
+                  if (e.key === 'Escape') setLinkOpen(false)
+                }}
+                placeholder="https://…"
+                className="flex-1 h-7 px-2 text-xs rounded-[var(--radius-xs)] bg-[var(--color-surface-2)] border border-[var(--color-border)] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] focus:outline-none focus:border-[var(--color-accent)] transition-colors"
+              />
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  if (linkUrl) editor.chain().focus().setLink({ href: linkUrl }).run()
+                  else editor.chain().focus().unsetLink().run()
+                  setLinkOpen(false)
+                }}
+                className="h-7 px-2 text-xs font-semibold rounded-[var(--radius-xs)] bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] transition-colors"
+              >
+                OK
+              </button>
+              <button
+                onMouseDown={(e) => { e.preventDefault(); setLinkOpen(false) }}
+                className="h-7 w-7 flex items-center justify-center rounded-[var(--radius-xs)] text-[var(--color-text-muted)] hover:bg-[var(--color-surface-2)] transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+        </div>
         <ToolbarButton active={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()} title="Inline code">
           <Code className="h-3.5 w-3.5" />
         </ToolbarButton>
